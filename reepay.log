@@ -1,0 +1,120 @@
+[DEBUG] HTTP Request body  ~BEGIN~
+{"email":"admin@example.com","address":"\u00d8rne","city":"Vejle","country":"DK","phone":"","test":true,"first_name":"Lars","last_name":"","postal_code":"zipcodeText","generate_handle":true}
+~END~
+* Hostname was NOT found in DNS cache
+*   Trying 52.17.156.180...
+* Connected to api.reepay.com (52.17.156.180) port 443 (#0)
+* successfully set certificate verify locations:
+*   CAfile: none
+  CApath: /etc/ssl/certs
+* SSL connection using ECDHE-RSA-AES128-GCM-SHA256
+* Server certificate:
+* 	 subject: CN=*.reepay.com
+* 	 start date: 2016-03-14 00:00:00 GMT
+* 	 expire date: 2017-05-13 23:59:59 GMT
+* 	 subjectAltName: api.reepay.com matched
+* 	 issuer: C=US; O=GeoTrust Inc.; CN=RapidSSL SHA256 CA
+* 	 SSL certificate verify ok.
+> POST /v1/customer HTTP/1.1
+User-Agent: Swagger-Codegen/1.0.0/php
+Host: api.reepay.com
+Authorization: Basic cHJpdl9iYWQ4ZDMxMmRlZThlMzY0N2IwNzc1ZTVkZGRmYjIwMzo=
+Accept: application/json
+Content-Type: application/json
+Content-Length: 190
+
+* upload completely sent off: 190 out of 190 bytes
+< HTTP/1.1 200 OK
+< Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token
+< Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+< Access-Control-Allow-Origin: *
+< Content-Type: application/json;charset=utf-8
+< Date: Fri, 02 Sep 2016 21:20:09 GMT
+< Request-Id: 6e72a67ee1515ab581e9677edefe610e
+< Content-Length: 877
+< Connection: keep-alive
+< 
+* Connection #0 to host api.reepay.com left intact
+[DEBUG] HTTP Response body ~BEGIN~
+{"email":"admin@example.com","address":"Ørne","city":"Vejle","country":"DK","phone":"","handle":"cust-0040","test":true,"subscriptions":0,"created":"2016-09-02T21:20:09.137+00:00","first_name":"Lars","last_name":"","postal_code":"zipcodeText","active_subscriptions":0,"trial_active_subscriptions":0,"trial_cancelled_subscriptions":0,"expired_subscriptions":0,"cancelled_subscriptions":0,"non_renewing_subscriptions":0,"failed_invoices":0,"failed_amount":0,"cancelled_invoices":0,"cancelled_amount":0,"pending_invoices":0,"pending_amount":0,"dunning_invoices":0,"dunning_amount":0,"settled_invoices":0,"settled_amount":0,"refunded_amount":0,"pending_additional_costs":0,"pending_additional_cost_amount":0,"transferred_additional_costs":0,"transferred_additional_cost_amount":0,"pending_credits":0,"pending_credit_amount":0,"transferred_credits":0,"transferred_credit_amount":0}
+~END~
+[DEBUG] HTTP Request body  ~BEGIN~
+{"name":"\u00c5rligt medlemsskab af fonden","amount":"20000","prepaid":true,"handle":"5344237ad06253d47cee9a4c091aa663","interval_length":12,"schedule_type":"month_startdate"}
+~END~
+* Hostname was found in DNS cache
+*   Trying 52.17.156.180...
+* Connected to api.reepay.com (52.17.156.180) port 443 (#1)
+* successfully set certificate verify locations:
+*   CAfile: none
+  CApath: /etc/ssl/certs
+* SSL connection using ECDHE-RSA-AES128-GCM-SHA256
+* Server certificate:
+* 	 subject: CN=*.reepay.com
+* 	 start date: 2016-03-14 00:00:00 GMT
+* 	 expire date: 2017-05-13 23:59:59 GMT
+* 	 subjectAltName: api.reepay.com matched
+* 	 issuer: C=US; O=GeoTrust Inc.; CN=RapidSSL SHA256 CA
+* 	 SSL certificate verify ok.
+> POST /v1/plan HTTP/1.1
+User-Agent: Swagger-Codegen/1.0.0/php
+Host: api.reepay.com
+Authorization: Basic cHJpdl9iYWQ4ZDMxMmRlZThlMzY0N2IwNzc1ZTVkZGRmYjIwMzo=
+Accept: application/json
+Content-Type: application/json
+Content-Length: 175
+
+* upload completely sent off: 175 out of 175 bytes
+< HTTP/1.1 200 OK
+< Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token
+< Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+< Access-Control-Allow-Origin: *
+< Content-Type: application/json;charset=utf-8
+< Date: Fri, 02 Sep 2016 21:20:09 GMT
+< Request-Id: 3b1ec1197dcd4894b3ac335fce11386d
+< Content-Length: 358
+< Connection: keep-alive
+< 
+* Connection #1 to host api.reepay.com left intact
+[DEBUG] HTTP Response body ~BEGIN~
+{"name":"Årligt medlemsskab af fonden","vat":0.25,"amount":20000,"quantity":1,"prepaid":true,"handle":"5344237ad06253d47cee9a4c091aa663","version":1,"state":"active","currency":"DKK","created":"2016-09-02T21:20:09.375+00:00","dunning_plan":"dunning_plan_QUyS","partial_period_handling":"bill_prorated","interval_length":12,"schedule_type":"month_startdate"}
+~END~
+[DEBUG] HTTP Request body  ~BEGIN~
+{"customer":"cust-0040","plan":"5344237ad06253d47cee9a4c091aa663","test":true,"signup_method":"email","conditional_create":false,"generate_handle":true,"start_date":"2016-09-02","grace_duration":10,"no_trial":false}
+~END~
+* Hostname was found in DNS cache
+*   Trying 52.17.156.180...
+* Connected to api.reepay.com (52.17.156.180) port 443 (#2)
+* successfully set certificate verify locations:
+*   CAfile: none
+  CApath: /etc/ssl/certs
+* SSL connection using ECDHE-RSA-AES128-GCM-SHA256
+* Server certificate:
+* 	 subject: CN=*.reepay.com
+* 	 start date: 2016-03-14 00:00:00 GMT
+* 	 expire date: 2017-05-13 23:59:59 GMT
+* 	 subjectAltName: api.reepay.com matched
+* 	 issuer: C=US; O=GeoTrust Inc.; CN=RapidSSL SHA256 CA
+* 	 SSL certificate verify ok.
+> POST /v1/subscription HTTP/1.1
+User-Agent: Swagger-Codegen/1.0.0/php
+Host: api.reepay.com
+Authorization: Basic cHJpdl9iYWQ4ZDMxMmRlZThlMzY0N2IwNzc1ZTVkZGRmYjIwMzo=
+Accept: application/json
+Content-Type: application/json
+Content-Length: 215
+
+* upload completely sent off: 215 out of 215 bytes
+< HTTP/1.1 200 OK
+< Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token
+< Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+< Access-Control-Allow-Origin: *
+< Content-Type: application/json;charset=utf-8
+< Date: Fri, 02 Sep 2016 21:20:09 GMT
+< Request-Id: b9b4654e999f7a24c873f79e923379d9
+< Content-Length: 1156
+< Connection: keep-alive
+< 
+* Connection #2 to host api.reepay.com left intact
+[DEBUG] HTTP Response body ~BEGIN~
+{"handle":"sub-0004","customer":"cust-0040","plan":"5344237ad06253d47cee9a4c091aa663","state":"active","test":true,"quantity":1,"timezone":"Europe/Copenhagen","created":"2016-09-02T21:20:09.605+00:00","renewing":true,"plan_version":1,"start_date":"2016-09-01T22:00:00.000+00:00","grace_duration":10,"current_period_start":"2016-09-01T22:00:00.000+00:00","next_period_start":"2017-09-01T22:00:00.000+00:00","first_period_start":"2016-09-01T22:00:00.000+00:00","is_cancelled":false,"in_trial":false,"has_started":true,"renewal_count":1,"payment_method_added":false,"failed_invoices":0,"failed_amount":0,"cancelled_invoices":0,"cancelled_amount":0,"pending_invoices":1,"pending_amount":20000,"dunning_invoices":0,"dunning_amount":0,"settled_invoices":0,"settled_amount":0,"refunded_amount":0,"pending_additional_costs":0,"pending_additional_cost_amount":0,"transferred_additional_costs":0,"transferred_additional_cost_amount":0,"pending_credits":0,"pending_credit_amount":0,"transferred_credits":0,"transferred_credit_amount":0,"hosted_page_links":{"payment_info":"https://vih-fond.reepay.com/paymentinfo/vejle-idrtshjskole/85def0225ad7707bd0114675bd16b109"}}
+~END~

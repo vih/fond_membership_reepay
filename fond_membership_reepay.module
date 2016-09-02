@@ -1,0 +1,546 @@
+<?php
+
+/**
+ * @file
+ */
+
+define('REEPAY_API_PROTOCOL', 'https://');
+define('REEPAY_API_URL', 'api.reepay.com');
+define('REEPAY_TESTMODE', true);
+
+use Swagger\Client\Configuration as ReepayConfiguration;
+use Swagger\Client\ApiClient as ReepayClient;
+
+/**
+ * Implements hook_menu().
+ */
+function fond_membership_reepay_menu() {
+    $items = array();
+
+    $items['admin/commerce/orders/%commerce_order/reepay'] = array(
+        'title' => 'Reepay',
+        'page callback' => 'fond_membership_reepay_pagecallback',
+        'page arguments' => array(3),
+        'access arguments' => array('create reepay handles'),
+        'type' => MENU_LOCAL_TASK,
+        'weight' => 1,
+        'parent' => 'admin/commerce/orders/%commerce_order',
+    );
+
+    $items['admin/config/services/reepay'] = array(
+        'title' => 'Reepay',
+        'description' => 'Manage Reepay settings.',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('fond_membership_reepay_admin_settings'),
+        'access arguments' => array('administer fond_membership_reepay'),
+        'file' => 'fond_membership_reepay.admin.inc',
+        'type' => MENU_NORMAL_ITEM,
+    );
+
+    return $items;
+}
+
+/**
+ * Implements hook_confirm().
+ */
+function fond_membership_reepay_create_invoice_confirm($form, &$form_state, $order) {
+    $form['order_id'] = array('#type' => 'value', '#value' => $order->order_id);
+    return confirm_form($form,
+        t('Are you sure you want to tie order reepay @id?', array('@id' => $order->order_id)),
+        'admin/commerce/orders/' . $order->order_id,
+        t('Are you sure you want to tie order @id to reepay plan?', array('@id' => $order->order_id)),
+        t('Create reepay subscription'),
+        t('Cancel')
+    );
+}
+
+/**
+ * Implements hook_confirm_submit().
+ */
+function fond_membership_reepay_create_invoice_confirm_submit($form, &$form_state) {
+    if ($form_state['values']['confirm']) {
+        $order = commerce_order_load($form_state['values']['order_id']);
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+        if ($fond_membership_reepay_invoice_id = fond_membership_reepay_create_invoice($order)) {
+            $message = t('Successfully created subscription based on order @order_id as handle @invoice_id', array('@order_id' => $order->order_id, '@invoice_id' => $order_wrapper->reepay_subscription_handle->value()));
+        }
+        else {
+            $message = t('An error occured while trying to invoice order @order_id as invoice id @invoice_id', array('@order_id' => $order->order_id, '@invoice_id' => $order_wrapper->reepay_subscription_handle->value()));
+        }
+        watchdog('fond_membership_reepay', $message);
+        drupal_set_message($message);
+    }
+}
+
+/**
+ * Page call back.
+ */
+function fond_membership_reepay_pagecallback($order) {
+    // Initiate API Client. Not actually used, but validates page.
+    // @todo: Should this maybe be part of an access callback to just 403?
+    try {
+        $api_request = fond_membership_reepay_get_api_client();
+    }
+    catch (Exception $e) {
+        drupal_set_message($e->getMessage(), 'error');
+        return '<p>' . t('Please review the !link', array('!link' => l(t('settings for fond_membership_reepay'), 'admin/config/services/reepay'))) . '.</p>';
+    }
+
+    /** @var EntityDrupalWrapper $wrapper */
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+    // Order state should be higher at least checkout complete.
+    if (in_array($wrapper->get('state')->value(), array('cart', 'checkout'))) {
+        return t('Order @order_id has order status "@status" and could not be invoiced.', array('@order_id' => $order->order_id, '@status' => $wrapper->state->value()));
+    }
+
+    // If the order does not have an API ID, set up form to create remote invoice.
+    $api_id = $wrapper->get('reepay_subscription_handle')->value();
+    if (!$api_id) {
+        return drupal_get_form('fond_membership_reepay_create_invoice_confirm', $order);
+    }
+
+    $link = fond_membership_reepay_get_invoice_link($api_id);
+    if (!$link) {
+        return array(
+            '#markup' => '<p>' . t('This subscription does not exist at Reepay. You can delete the Reepay handle on the edit page and try again.') . '</p>',
+        );
+    }
+    else {
+        $output = '<p>' . t('Order @order_id has been subscribed as !invoice_id in Reepay.', array(
+                '@order_id' => $order->order_id,
+                '!invoice_id' => l($order->reepay_subscription_handle, $link)
+            )) . '</p>';
+        $output .= '<p>' . t('!link', array('!link' => l(t('Subscription'), $link))) . '</p>';
+        return array(
+            '#markup' => $output,
+        );
+    }
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function fond_membership_reepay_libraries_info() {
+    $libraries = array();
+    $libraries['reepay-php-sdk'] = array(
+        'name' => 'Reepay PHP SDK',
+        'vendor url' => 'https://github.com/lsolesen/reepay-php-sdk',
+        'version' => 'master',
+        'xautoload' => 'fond_membership_reepay_xautoload_libraries_callback'
+    );
+    return $libraries;
+}
+
+/**
+ * XAutoload callback.
+ *
+ * Closure's cannot be serailized. Having this as an anonymous function is
+ * causing some grief when libraries info is cached.
+ *
+ * @param \Drupal\xautoload\Adapter\LocalDirectoryAdapter $adapter
+ */
+function fond_membership_reepay_xautoload_libraries_callback($adapter) {
+    $adapter->composerJson('composer.json');
+}
+
+/**
+ * Implements hook_permission().
+ */
+function fond_membership_reepay_permission() {
+    return array(
+        'create invoice with fond_membership_reepay' => array(
+            'title' => t('use fond_membership_reepay'),
+            'description' => t('Make it possible to create subscriptions using Reepay'),
+        ),
+        'administer fond_membership_reepay' => array(
+            'title' => t('administer Reepay settings'),
+            'description' => t('Administer API keys for Reepay'),
+        ),
+    );
+}
+
+/**
+ * Implements hook_field_access().
+ */
+function fond_membership_reepay_field_access($op, $field, $entity_type, $entity, $account) {
+    $fields = array('invoice', 'product', 'contact');
+    foreach ($fields as $name) {
+        if ($field['field_name'] == 'reepay_' . $name . '_handle') {
+            // Only allow admins to edit field value.
+            return user_access('administer fond_membership_reepay', $account);
+        }
+    }
+    return TRUE;
+}
+
+/**
+ * Get a Billy_Client object
+ *
+ * Object for communication with the the Billy server.
+ *
+ * @throws Exception
+ * @return Billy_Client
+ */
+function fond_membership_reepay_get_api_client() {
+    try {
+        $configuration = fond_membership_reepay_get_api_configuration();
+        $client = new ReepayClient($configuration);
+        return $client;
+    }
+    catch (\Swagger\Client\ApiException $e) {
+        throw $e;
+    }
+}
+
+/**
+ * Get a Billy_Client object
+ *
+ * Object for communication with the the Billy server.
+ *
+ * @throws Exception
+ * @return Billy_Request
+ */
+function fond_membership_reepay_get_api_configuration() {
+    $library = libraries_detect('reepay-php-sdk');
+    if ($library['installed']) {
+        libraries_load('reepay-php-sdk');
+
+        if (!variable_get('fond_membership_reepay_api_key', '')) {
+            // @todo: Provide link to admin settings form.
+            throw new Exception(t('You must set an API key in order to use Reepay', array()));
+        }
+        $configuration = new ReepayConfiguration();
+        $configuration->setUsername(variable_get('fond_membership_reepay_api_key', ''));
+        $configuration->addDefaultHeader('Authorization', 'Basic ' . base64_encode(variable_get('fond_membership_reepay_api_key', '') . ":"));
+        $configuration->setHost(REEPAY_API_PROTOCOL . REEPAY_API_URL);
+        $configuration->setDebug(true);
+        $configuration->setDebugFile(__DIR__ . '/reepay.log');
+        return $configuration;
+    }
+    else {
+        throw new Exception(t('Reepay PHP SDK library not installed'));
+    }
+}
+
+/**
+ * Returns a specified entity repository for API interaction.
+ *
+ * @param string $class_name Class name, including namespace.
+ * @return Billy_EntityRepository|null
+ */
+function fond_membership_reepay_get_api_repository($class_name) {
+    // Initiate API Client.
+    try {
+        $api_request = fond_membership_reepay_get_api_client();
+        return new $class_name($api_request);
+    }
+    catch (Exception $e) {
+        drupal_set_message($e->getMessage(), 'error');
+        return null;
+    }
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function fond_membership_reepay_commerce_checkout_complete($order) {
+    // When the checkout is complete, we can create the invoice.
+    // TODO This works, but will not be invoked until beta or RC.
+    // fond_membership_reepay_create_invoice($order);
+}
+
+/**
+ * Syncs a contact with Billy
+ *
+ * @param integer $profile_id Drupal Commerce Contact Profile ID
+ * @param string  $email
+ *
+ * @return string Billy Contact ID
+ */
+function fond_membership_reepay_sync_contact($profile_id, $email) {
+    /** @var Billy_ContactRepository $repository */
+    $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\CustomerApi');
+    if ($repository === null) {
+        return null;
+    }
+
+    /** @var EntityDrupalWrapper $customer_profile */
+    $customer_profile = entity_metadata_wrapper('commerce_customer_profile', $profile_id);
+
+    $address = $customer_profile->get('commerce_customer_address')->value();
+
+    // Phone isn't something handled by Commerce by default.
+    $phone = '';
+    if ($customer_profile->__isset('field_customer_phone')) {
+        $phone = $customer_profile->get('field_customer_phone')->value();
+    }
+
+    // Create or update the contact.
+    $current_handle = $customer_profile->get('reepay_contact_handle')->value();
+
+    if ($current_handle) {
+        $contact = $repository->getCustomer($current_handle);
+    }
+    else {
+        $contact = new \Swagger\Client\Model\CreateCustomer();
+    }
+
+    $contact
+        ->setFirstName($address['first_name'])
+        ->setLastName($address['last_name'])
+        ->setEmail($email)
+        ->setPhone($phone)
+        ->setCountry($address['country'])
+        ->setAddress($address['thoroughfare'])
+        ->setCity($address['locality'])
+        ->setPostalCode('zipcodeText', $address['postal_code'])
+        ->setTest(REEPAY_TESTMODE)
+        //->setHandle(md5($address['first_name'] . $address['last_name'] . $email))
+        ->setGenerateHandle(true);
+
+    try {
+        if ($current_handle) {
+            // Update existing.
+            // $repository->updateCustomerJson($current_handle, $contact);
+            return $contact->getHandle();
+        }
+        else {
+            // Create contact.
+            $created_contact = $repository->createCustomerJson($contact);
+            $customer_profile->get('reepay_contact_handle')->set($contact->getHandle());
+            $customer_profile->save();
+            return $created_contact->getHandle();
+        }
+    }
+    catch (Exception $e) {
+        drupal_set_message($e->getMessage(), 'error');
+        return null;
+    }
+}
+
+/**
+ * Syncs a product with Billy
+ *
+ * @param integer $product_id Drupal Commerce Product Id
+ *
+ * @return string Billy Product ID
+ */
+function fond_membership_reepay_sync_product($product_id) {
+    /** @var Billy_ProductsRepository $repository */
+    $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\PlanApi');
+    if ($repository === null) {
+        return null;
+    }
+
+    /** @var EntityDrupalWrapper $product */
+    $product = entity_metadata_wrapper('commerce_product', $product_id);
+
+    $price = $product->get('commerce_price')->value();
+
+    // If the price has no value, skip.
+    if (empty($price['amount'])) {
+        return FALSE;
+    }
+
+    $current_handle = $product->get('reepay_plan_handle')->value();
+
+    if ($current_handle) {
+        $api_product = $repository->getPlan($current_handle, '1');
+    }
+    else {
+        $api_product = new \Swagger\Client\Model\CreateSubscriptionPlan();
+    }
+
+    $api_product
+        ->setName($product->get('title')->value())
+        ->setAmount($price['amount'])
+        ->setPrepaid(true)
+        ->setHandle(md5($product->getIdentifier() . $price['amount']))
+        ->setIntervalLength(12)
+        ->setScheduleType('month_startdate');
+
+    try {
+        if ($current_handle) {
+            // Update existing.
+            // $repository->updatePlanJson($api_product);
+            return $api_product->getHandle();
+        }
+        else {
+            // Create contact.
+            $created_product = $repository->createPlanJson($api_product);
+            $product->get('reepay_plan_handle')->set($api_product->getHandle());
+            $product->save();
+            return $api_product->getHandle();
+        }
+    }
+    catch (Exception $e) {
+        drupal_set_message($e->getMessage(), 'error');
+        return null;
+    }
+}
+
+/**
+ * Creates an invoice in Billy
+ *
+ * @param object $order Drupal Commerce Order Object
+ *
+ * @return string Billy Invoice ID
+ */
+function fond_membership_reepay_create_invoice($order) {
+    /** @var Billy_InvoicesRepository $repository */
+    $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\SubscriptionApi');
+    if ($repository === null) {
+        return null;
+    }
+
+    /** @var EntityDrupalWrapper $wrapper */
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+    /** @var EntityDrupalWrapper $billing_profile */
+    $billing_profile = $wrapper->get('commerce_customer_billing');
+    $fond_membership_reepay_contact_handle = fond_membership_reepay_sync_contact($billing_profile->getIdentifier(), $wrapper->get('mail')->value());
+
+    // If syncing of the contact failed, so should invoice generation.
+    if (!$fond_membership_reepay_contact_handle) {
+        // @todo: Should a message be displayed?
+        return false;
+    }
+
+    /** @var EntityDrupalWrapper $line_item_wrapper */
+    foreach ($wrapper->get('commerce_line_items') as $line_item_wrapper) {
+        $fond_membership_reepay_plan_handle = NULL;
+        $line_item = $line_item_wrapper->value();
+
+        switch ($line_item_wrapper->getBundle()) {
+            case 'product':
+                $fond_membership_reepay_plan_handle = fond_membership_reepay_sync_product($line_item_wrapper->get('commerce_product')->raw());
+                break;
+            case 'shipping':
+            case 'commerce_coupon':
+            case 'giftcard_use':
+            case 'commerce_discount':
+                break;
+        }
+
+        if (!$fond_membership_reepay_plan_handle) {
+            continue;
+        }
+
+    }
+
+    // Create the subscription.
+    $entry_date = new DateTime();
+    $entry_date->setTimestamp($wrapper->get('changed')->value());
+    $start_date = $entry_date->format('Y-m-d');
+
+    $new_invoice = new \Swagger\Client\Model\CreateSubscription();
+    $new_invoice->setCustomer($fond_membership_reepay_contact_handle)
+        ->setPlan($fond_membership_reepay_plan_handle)
+        ->setGraceDuration(60 * 60 * 24)
+        ->setStartDate($start_date)
+        ->setSignupMethod('email')
+        ->setTest(REEPAY_TESTMODE)
+        ->setGenerateHandle(true);
+
+    try {
+        $created_invoice = $repository->createSubscriptionJson($new_invoice);
+        $fond_membership_reepay_invoice_handle = $new_invoice->getHandle();
+        // Create the payment.
+        // fond_membership_reepay_sync_payment_on_order($order, $fond_membership_reepay_invoice_handle);
+    }
+    catch (Exception $e) {
+        $fond_membership_reepay_invoice_handle = NULL;
+    }
+
+    // Save id to the entity.
+    $wrapper->get('reepay_subscription_handle')->set($fond_membership_reepay_invoice_handle);
+    $wrapper->save();
+
+    return $fond_membership_reepay_invoice_handle;
+}
+
+/**
+ * Utility function to create the order's payment at Billy.
+ *
+ * It's hard to tell what payment to transfer, since it depends on the payment
+ * method. We try to find the proper one.
+ *
+ * @todo: Long description needs clarification.
+ *
+ * @param $api_id
+ * @return bool|string
+ */
+function fond_membership_reepay_get_invoice_link($api_id) {
+    /** @var Billy_InvoicesRepository $repository */
+    $repository = fond_membership_reepay_get_api_repository('\Billy\Invoices\InvoicesRepository');
+    if ($repository === null) {
+        return false;
+    }
+
+    try {
+        $invoice = $repository->getSingle($api_id);
+        return $invoice->getDownloadURL();
+    }
+    catch (Exception $e) {
+        watchdog('fond_membership_reepay', 'Invoice ' . $api_id . ' does not exist in BB.', array(), WATCHDOG_ERROR);
+        return false;
+    }
+}
+
+/**
+ * @param $order
+ * @param $invoice_id
+ * @return null|void
+ */
+function fond_membership_reepay_sync_payment_on_order($order, $invoice_id) {
+    /** @var Billy_BankPaymentRepository $repository */
+    $repository = fond_membership_reepay_get_api_repository('\Billy\BankPayments\BankPaymentRepository');
+    if ($repository === null) {
+        return null;
+    }
+
+    $valid_payment_status = array(
+        COMMERCE_CREDIT_AUTH_ONLY,
+        COMMERCE_CREDIT_CAPTURE_ONLY,
+        COMMERCE_CREDIT_AUTH_CAPTURE,
+        COMMERCE_PAYMENT_STATUS_PENDING, // Should pending be listed on accepted status list?
+        COMMERCE_PAYMENT_STATUS_SUCCESS,
+    );
+    $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order->order_id));
+    foreach ($payments as $key => $payment) {
+        if (!in_array($payment->status, $valid_payment_status)) {
+            unset($payments[$key]);
+        }
+    }
+
+    if (empty($payments)) {
+        // No payments, end here.
+        return;
+    }
+
+    // Sync the last payment.
+    $payment = end($payments);
+    // TODO Should not be on the state_account but on a payment account.
+
+    $entry_date = new DateTime();
+    $entry_date->setTimestamp($payment->created);
+
+    $bank_payment = new Billy_BankPayment();
+    $bank_payment->setEntryDate($entry_date)
+        ->set('cashAmount', $payment->amount)
+        ->set('cashAccountId', variable_get('fond_membership_reepay_state_account_id'))
+        ->set('associations', array(
+            'subjectReference' => 'invoice:' . $invoice_id
+        ));
+
+
+    try {
+        $created_payment = $repository->create($bank_payment);
+    }
+    catch (Exception $e) {
+        $status = drupal_json_decode($e->json_body);
+        watchdog('fond_membership_reepay', 'Failed creating payments on invoice, reason was: %reason', array('%reason' => $status['error']), WATCHDOG_ERROR);
+    }
+}

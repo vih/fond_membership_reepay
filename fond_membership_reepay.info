@@ -1,0 +1,14 @@
+name = Fond Membership Reepay
+description = Provides integration between Fond Membership and Reepay
+package = "Fond"
+core = 7.x
+configure = admin/config/services/reepay
+
+dependencies[] = commerce_product
+dependencies[] = commerce_order
+dependencies[] = commerce_customer
+dependencies[] = fond_membership
+dependencies[] = libraries
+dependencies[] = xautoload
+
+files[] = fond_membership_reepay.admin.inc
