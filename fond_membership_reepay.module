@@ -286,6 +286,16 @@ function fond_membership_reepay_sync_contact($profile_id, $email) {
         $contact = new \Swagger\Client\Model\CreateCustomer();
     }
 
+    if (empty($address['first_name']) AND empty($address['last_name'])) {
+        if (!empty($address['name_line'])) {
+            $address['first_name'] = $address['name_line'];
+            $address['last_name'] = '';
+        } else {
+            $address['first_name'] = '';
+            $address['last_name'] = '';
+        }
+    }
+
     // The handle is not saved on the same profile, a new
     // is created. That means we need to have Reepay generate the handle.
     $contact
