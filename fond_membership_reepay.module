@@ -110,9 +110,9 @@ function fond_membership_reepay_pagecallback($order) {
     else {
         $output = '<p>' . t('Order @order_id has been subscribed as !invoice_id in Reepay.', array(
                 '@order_id' => $order->order_id,
-                '!invoice_id' => l($order->reepay_subscription_handle, $link)
+                '!invoice_id' => $api_id,
             )) . '</p>';
-        $output .= '<p>' . t('!link', array('!link' => l(t('Subscription'), $link))) . '</p>';
+        $output .= '<p>' . $link . '</p>';
         return array(
             '#markup' => $output,
         );
@@ -296,8 +296,7 @@ function fond_membership_reepay_sync_contact($profile_id, $email) {
         ->setCity($address['locality'])
         ->setPostalCode('zipcodeText', $address['postal_code'])
         ->setTest(REEPAY_TESTMODE)
-        //->setHandle(md5($address['first_name'] . $address['last_name'] . $email))
-        ->setGenerateHandle(true);
+        ->setHandle('customer-' . $profile_id);
 
     try {
         if ($current_handle) {
@@ -430,14 +429,16 @@ function fond_membership_reepay_create_invoice($order) {
     }
 
     // Create the subscription.
+    /*
     $entry_date = new DateTime();
     $entry_date->setTimestamp($wrapper->get('changed')->value());
     $start_date = $entry_date->format('Y-m-d');
-
+    */
+    $start_date = date('Y-m-d');
     $new_invoice = new \Swagger\Client\Model\CreateSubscription();
     $new_invoice->setCustomer($fond_membership_reepay_contact_handle)
         ->setPlan($fond_membership_reepay_plan_handle)
-        ->setGraceDuration(60 * 60 * 24)
+        ->setGraceDuration(60 * 60 * 36)
         ->setStartDate($start_date)
         ->setSignupMethod('email')
         ->setTest(REEPAY_TESTMODE)
@@ -472,23 +473,23 @@ function fond_membership_reepay_create_invoice($order) {
  * @return bool|string
  */
 function fond_membership_reepay_get_invoice_link($handle) {
-    return true;
+
     /** @var Billy_InvoicesRepository $repository */
-    /*
-    $repository = fond_membership_reepay_get_api_repository('\Billy\Invoices\InvoicesRepository');
+
+    $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\SubscriptionApi');
     if ($repository === null) {
         return false;
     }
 
     try {
-        $invoice = $repository->getSingle($api_id);
-        return $invoice->getDownloadURL();
+        $invoice = $repository->getSubscription($handle);
+        return $invoice->getHostedPageLinks();
     }
     catch (Exception $e) {
-        watchdog('fond_membership_reepay', 'Invoice ' . $api_id . ' does not exist in BB.', array(), WATCHDOG_ERROR);
+        watchdog('fond_membership_reepay', 'Subscription ' . $handle . ' does not exist in Reepay.', array(), WATCHDOG_ERROR);
         return false;
     }
-    */
+
 }
 
 /**
