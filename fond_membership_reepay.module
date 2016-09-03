@@ -370,9 +370,9 @@ function fond_membership_reepay_sync_product($product_id) {
         else {
             // Create contact.
             $created_product = $repository->createPlanJson($api_product);
-            $product->get('reepay_plan_handle')->set($api_product->getHandle());
+            $product->get('reepay_plan_handle')->set($created_product->getHandle());
             $product->save();
-            return $api_product->getHandle();
+            return $created_product->getHandle();
         }
     }
     catch (Exception $e) {
