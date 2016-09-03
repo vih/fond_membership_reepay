@@ -215,8 +215,8 @@ function fond_membership_reepay_get_api_configuration() {
         $configuration->setUsername(variable_get('fond_membership_reepay_api_key', ''));
         $configuration->addDefaultHeader('Authorization', 'Basic ' . base64_encode(variable_get('fond_membership_reepay_api_key', '') . ":"));
         $configuration->setHost(REEPAY_API_PROTOCOL . REEPAY_API_URL);
-        $configuration->setDebug(true);
-        $configuration->setDebugFile(__DIR__ . '/reepay.log');
+        //$configuration->setDebug(true);
+        //$configuration->setDebugFile(__DIR__ . '/reepay.log');
         return $configuration;
     }
     else {
