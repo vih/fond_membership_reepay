@@ -442,7 +442,7 @@ function fond_membership_reepay_create_invoice($order) {
         ->setStartDate($start_date)
         ->setSignupMethod('email')
         ->setTest(REEPAY_TESTMODE)
-        ->setGenerateHandle(true);
+        ->setHandle('medlemsskab-' . $order->order_id);
 
     try {
         $created_invoice = $repository->createSubscriptionJson($new_invoice);
@@ -472,8 +472,10 @@ function fond_membership_reepay_create_invoice($order) {
  * @param $api_id
  * @return bool|string
  */
-function fond_membership_reepay_get_invoice_link($api_id) {
+function fond_membership_reepay_get_invoice_link($handle) {
+    return true;
     /** @var Billy_InvoicesRepository $repository */
+    /*
     $repository = fond_membership_reepay_get_api_repository('\Billy\Invoices\InvoicesRepository');
     if ($repository === null) {
         return false;
@@ -487,6 +489,7 @@ function fond_membership_reepay_get_invoice_link($api_id) {
         watchdog('fond_membership_reepay', 'Invoice ' . $api_id . ' does not exist in BB.', array(), WATCHDOG_ERROR);
         return false;
     }
+    */
 }
 
 /**
