@@ -356,6 +356,7 @@ function fond_membership_reepay_sync_product($product_id) {
     $api_product
         ->setName($product->get('title')->value())
         ->setAmount($price['amount'])
+        ->setVat(0)
         ->setPrepaid(true)
         ->setHandle($product->get('sku')->value())
         ->setIntervalLength(12)
@@ -414,11 +415,12 @@ function fond_membership_reepay_create_invoice($order) {
         $line_item = $line_item_wrapper->value();
 
         switch ($line_item_wrapper->getBundle()) {
-            case 'commerce_discount':
+            case 'commerce_donate':
             case 'product':
                 $fond_membership_reepay_plan_handle = fond_membership_reepay_sync_product($line_item_wrapper->get('commerce_product')->raw());
                 break;
             case 'shipping':
+            case 'commerce_discount':
             case 'commerce_coupon':
             case 'giftcard_use':
                 break;
