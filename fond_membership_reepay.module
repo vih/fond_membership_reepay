@@ -215,8 +215,8 @@ function fond_membership_reepay_get_api_configuration() {
         $configuration->setUsername(variable_get('fond_membership_reepay_api_key', ''));
         $configuration->addDefaultHeader('Authorization', 'Basic ' . base64_encode(variable_get('fond_membership_reepay_api_key', '') . ":"));
         $configuration->setHost(REEPAY_API_PROTOCOL . REEPAY_API_URL);
-        //$configuration->setDebug(true);
-        //$configuration->setDebugFile(__DIR__ . '/reepay.log');
+        // $configuration->setDebug(true);
+        // $configuration->setDebugFile(__DIR__ . '/reepay.log');
         return $configuration;
     }
     else {
@@ -286,6 +286,8 @@ function fond_membership_reepay_sync_contact($profile_id, $email) {
         $contact = new \Swagger\Client\Model\CreateCustomer();
     }
 
+    // The handle is not saved on the same profile, a new
+    // is created. That means we need to have Reepay generate the handle.
     $contact
         ->setFirstName($address['first_name'])
         ->setLastName($address['last_name'])
@@ -294,9 +296,9 @@ function fond_membership_reepay_sync_contact($profile_id, $email) {
         ->setCountry($address['country'])
         ->setAddress($address['thoroughfare'])
         ->setCity($address['locality'])
-        ->setPostalCode('zipcodeText', $address['postal_code'])
+        ->setPostalCode($address['postal_code'])
         ->setTest(REEPAY_TESTMODE)
-        ->setHandle('customer-' . $profile_id);
+        ->setGenerateHandle(true);
 
     try {
         if ($current_handle) {
@@ -307,7 +309,7 @@ function fond_membership_reepay_sync_contact($profile_id, $email) {
         else {
             // Create contact.
             $created_contact = $repository->createCustomerJson($contact);
-            $customer_profile->get('reepay_contact_handle')->set($contact->getHandle());
+            $customer_profile->get('reepay_contact_handle')->set($created_contact->getHandle());
             $customer_profile->save();
             return $created_contact->getHandle();
         }
@@ -412,13 +414,13 @@ function fond_membership_reepay_create_invoice($order) {
         $line_item = $line_item_wrapper->value();
 
         switch ($line_item_wrapper->getBundle()) {
+            case 'commerce_discount':
             case 'product':
                 $fond_membership_reepay_plan_handle = fond_membership_reepay_sync_product($line_item_wrapper->get('commerce_product')->raw());
                 break;
             case 'shipping':
             case 'commerce_coupon':
             case 'giftcard_use':
-            case 'commerce_discount':
                 break;
         }
 
@@ -442,11 +444,11 @@ function fond_membership_reepay_create_invoice($order) {
         ->setStartDate($start_date)
         ->setSignupMethod('email')
         ->setTest(REEPAY_TESTMODE)
-        ->setHandle('medlemsskab-' . $order->order_id);
+        ->setGenerateHandle(true);
 
     try {
         $created_invoice = $repository->createSubscriptionJson($new_invoice);
-        $fond_membership_reepay_invoice_handle = $new_invoice->getHandle();
+        $fond_membership_reepay_invoice_handle = $created_invoice->getHandle();
         // Create the payment.
         // fond_membership_reepay_sync_payment_on_order($order, $fond_membership_reepay_invoice_handle);
     }
