@@ -247,8 +247,7 @@ function fond_membership_reepay_get_api_repository($class_name) {
  */
 function fond_membership_reepay_commerce_checkout_complete($order) {
     // When the checkout is complete, we can create the invoice.
-    // TODO This works, but will not be invoked until beta or RC.
-    // fond_membership_reepay_create_invoice($order);
+    fond_membership_reepay_create_invoice($order);
 }
 
 /**
@@ -357,7 +356,7 @@ function fond_membership_reepay_sync_product($product_id) {
         ->setName($product->get('title')->value())
         ->setAmount($price['amount'])
         ->setPrepaid(true)
-        ->setHandle(md5($product->getIdentifier() . $price['amount']))
+        ->setHandle($product->get('sku')->value())
         ->setIntervalLength(12)
         ->setScheduleType('month_startdate');
 
