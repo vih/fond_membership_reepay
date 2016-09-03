@@ -363,9 +363,16 @@ function fond_membership_reepay_sync_product($product_id) {
         $api_product = new \Swagger\Client\Model\CreateSubscriptionPlan();
     }
 
+    $min_amount = 200;
+    if ($price['amount'] < $min_amount) {
+        $amount = $min_amount;
+    } else {
+        $amount = $price['amount'];
+    }
+
     $api_product
         ->setName($product->get('title')->value())
-        ->setAmount($price['amount'])
+        ->setAmount($amount)
         ->setVat(0)
         ->setPrepaid(true)
         ->setHandle($product->get('sku')->value())
