@@ -16,6 +16,13 @@ function fond_membership_reepay_admin_settings() {
         '#description' => t('The API key for your Reepay account. Get or generate a valid API key at Reepay. Please read the !termslink.', array('!termslink' => l(t('Reepay API Terms'), 'https://api.reepay.com/api'))),
     );
 
+    $form['fond_membership_reepay_test'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Mark entities in Reepay as test'),
+        '#default_value' => variable_get('fond_membership_reepay_test', false),
+        '#description' => t('Should entities in Reepay be marked as test?')
+    );
+
     // Initiate API Client.
     try {
         $api_request = fond_membership_reepay_get_api_client();

@@ -57,6 +57,15 @@ function _fond_membership_reepay_create_field($field_name, $entity_type, $bundle
 }
 
 /**
+ * Implements hook_uninstall().
+ */
+function fond_membership_reepay_uninstall() {
+  variable_del('fond_membership_reepay_test');
+  variable_del('fond_membership_reepay_api_key');
+  // TODO What to do about the created fields?
+}
+
+/**
  * Implements hook_update_N().
  * Adds field on donation products.
  */

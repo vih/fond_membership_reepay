@@ -6,7 +6,7 @@
 
 define('REEPAY_API_PROTOCOL', 'https://');
 define('REEPAY_API_URL', 'api.reepay.com');
-define('REEPAY_TESTMODE', true);
+define('REEPAY_TESTMODE', variable_get('fond_membership_reepay_test', false));
 
 use Swagger\Client\Configuration as ReepayConfiguration;
 use Swagger\Client\ApiClient as ReepayClient;
