@@ -176,12 +176,12 @@ function fond_membership_reepay_field_access($op, $field, $entity_type, $entity,
 }
 
 /**
- * Get a Billy_Client object
+ * Get a ReepayClient object
  *
- * Object for communication with the the Billy server.
+ * Object for communication with the the Reepay server.
  *
  * @throws Exception
- * @return Billy_Client
+ * @return ReepayClient
  */
 function fond_membership_reepay_get_api_client() {
     try {
@@ -195,12 +195,12 @@ function fond_membership_reepay_get_api_client() {
 }
 
 /**
- * Get a Billy_Client object
+ * Get a ReepayClient object
  *
- * Object for communication with the the Billy server.
+ * Object for communication with the the Reepay server.
  *
  * @throws Exception
- * @return Billy_Request
+ * @return ReepayConfiguration
  */
 function fond_membership_reepay_get_api_configuration() {
     $library = libraries_detect('reepay-php-sdk');
@@ -228,7 +228,7 @@ function fond_membership_reepay_get_api_configuration() {
  * Returns a specified entity repository for API interaction.
  *
  * @param string $class_name Class name, including namespace.
- * @return Billy_EntityRepository|null
+ * @return Reepay_EntityRepository|null
  */
 function fond_membership_reepay_get_api_repository($class_name) {
     // Initiate API Client.
@@ -251,15 +251,14 @@ function fond_membership_reepay_commerce_checkout_complete($order) {
 }
 
 /**
- * Syncs a contact with Billy
+ * Syncs a contact with Reepay
  *
  * @param integer $profile_id Drupal Commerce Contact Profile ID
  * @param string  $email
  *
- * @return string Billy Contact ID
+ * @return string Reepay Contact ID
  */
 function fond_membership_reepay_sync_contact($profile_id, $email) {
-    /** @var Billy_ContactRepository $repository */
     $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\CustomerApi');
     if ($repository === null) {
         return null;
@@ -321,14 +320,13 @@ function fond_membership_reepay_sync_contact($profile_id, $email) {
 }
 
 /**
- * Syncs a product with Billy
+ * Syncs a product with Reepay
  *
  * @param integer $product_id Drupal Commerce Product Id
  *
- * @return string Billy Product ID
+ * @return string Reepay Product ID
  */
 function fond_membership_reepay_sync_product($product_id) {
-    /** @var Billy_ProductsRepository $repository */
     $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\PlanApi');
     if ($repository === null) {
         return null;
@@ -383,14 +381,13 @@ function fond_membership_reepay_sync_product($product_id) {
 }
 
 /**
- * Creates an invoice in Billy
+ * Creates an invoice in Reepay
  *
  * @param object $order Drupal Commerce Order Object
  *
- * @return string Billy Invoice ID
+ * @return string Reepay Subscription ID
  */
 function fond_membership_reepay_create_invoice($order) {
-    /** @var Billy_InvoicesRepository $repository */
     $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\SubscriptionApi');
     if ($repository === null) {
         return null;
@@ -451,8 +448,6 @@ function fond_membership_reepay_create_invoice($order) {
     try {
         $created_invoice = $repository->createSubscriptionJson($new_invoice);
         $fond_membership_reepay_invoice_handle = $created_invoice->getHandle();
-        // Create the payment.
-        // fond_membership_reepay_sync_payment_on_order($order, $fond_membership_reepay_invoice_handle);
     }
     catch (Exception $e) {
         $fond_membership_reepay_invoice_handle = NULL;
@@ -466,7 +461,7 @@ function fond_membership_reepay_create_invoice($order) {
 }
 
 /**
- * Utility function to create the order's payment at Billy.
+ * Utility function to create the order's payment at Reepay.
  *
  * It's hard to tell what payment to transfer, since it depends on the payment
  * method. We try to find the proper one.
@@ -477,9 +472,6 @@ function fond_membership_reepay_create_invoice($order) {
  * @return bool|string
  */
 function fond_membership_reepay_get_invoice_link($handle) {
-
-    /** @var Billy_InvoicesRepository $repository */
-
     $repository = fond_membership_reepay_get_api_repository('\Swagger\Client\Api\SubscriptionApi');
     if ($repository === null) {
         return false;
@@ -494,60 +486,4 @@ function fond_membership_reepay_get_invoice_link($handle) {
         return false;
     }
 
-}
-
-/**
- * @param $order
- * @param $invoice_id
- * @return null|void
- */
-function fond_membership_reepay_sync_payment_on_order($order, $invoice_id) {
-    /** @var Billy_BankPaymentRepository $repository */
-    $repository = fond_membership_reepay_get_api_repository('\Billy\BankPayments\BankPaymentRepository');
-    if ($repository === null) {
-        return null;
-    }
-
-    $valid_payment_status = array(
-        COMMERCE_CREDIT_AUTH_ONLY,
-        COMMERCE_CREDIT_CAPTURE_ONLY,
-        COMMERCE_CREDIT_AUTH_CAPTURE,
-        COMMERCE_PAYMENT_STATUS_PENDING, // Should pending be listed on accepted status list?
-        COMMERCE_PAYMENT_STATUS_SUCCESS,
-    );
-    $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order->order_id));
-    foreach ($payments as $key => $payment) {
-        if (!in_array($payment->status, $valid_payment_status)) {
-            unset($payments[$key]);
-        }
-    }
-
-    if (empty($payments)) {
-        // No payments, end here.
-        return;
-    }
-
-    // Sync the last payment.
-    $payment = end($payments);
-    // TODO Should not be on the state_account but on a payment account.
-
-    $entry_date = new DateTime();
-    $entry_date->setTimestamp($payment->created);
-
-    $bank_payment = new Billy_BankPayment();
-    $bank_payment->setEntryDate($entry_date)
-        ->set('cashAmount', $payment->amount)
-        ->set('cashAccountId', variable_get('fond_membership_reepay_state_account_id'))
-        ->set('associations', array(
-            'subjectReference' => 'invoice:' . $invoice_id
-        ));
-
-
-    try {
-        $created_payment = $repository->create($bank_payment);
-    }
-    catch (Exception $e) {
-        $status = drupal_json_decode($e->json_body);
-        watchdog('fond_membership_reepay', 'Failed creating payments on invoice, reason was: %reason', array('%reason' => $status['error']), WATCHDOG_ERROR);
-    }
 }
