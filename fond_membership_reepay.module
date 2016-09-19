@@ -84,7 +84,7 @@ function fond_membership_reepay_pagecallback($order) {
     }
     catch (Exception $e) {
         drupal_set_message($e->getMessage(), 'error');
-        return '<p>' . t('Please review the !link', array('!link' => l(t('settings for fond_membership_reepay'), 'admin/config/services/reepay'))) . '.</p>';
+        return '<p>' . t('Please review the !link', array('!link' => l(t('settings for Reepay'), 'admin/config/services/reepay'))) . '.</p>';
     }
 
     /** @var EntityDrupalWrapper $wrapper */
@@ -92,10 +92,10 @@ function fond_membership_reepay_pagecallback($order) {
 
     // Order state should be higher at least checkout complete.
     if (in_array($wrapper->get('state')->value(), array('cart', 'checkout'))) {
-        return t('Order @order_id has order status "@status" and could not be invoiced.', array('@order_id' => $order->order_id, '@status' => $wrapper->state->value()));
+        return t('Order @order_id has order status "@status" and could not be bade a subscription.', array('@order_id' => $order->order_id, '@status' => $wrapper->state->value()));
     }
 
-    // If the order does not have an API ID, set up form to create remote invoice.
+    // If the order does not have an API ID, set up form to create remote subscription.
     $api_id = $wrapper->get('reepay_subscription_handle')->value();
     if (!$api_id) {
         return drupal_get_form('fond_membership_reepay_create_invoice_confirm', $order);
@@ -246,7 +246,7 @@ function fond_membership_reepay_get_api_repository($class_name) {
  * Implements hook_commerce_checkout_complete().
  */
 function fond_membership_reepay_commerce_checkout_complete($order) {
-    // When the checkout is complete, we can create the invoice.
+    // When the checkout is complete, we can create the subscription.
     fond_membership_reepay_create_invoice($order);
 }
 
@@ -412,10 +412,10 @@ function fond_membership_reepay_create_invoice($order) {
         $line_item = $line_item_wrapper->value();
 
         switch ($line_item_wrapper->getBundle()) {
-            case 'commerce_donate':
             case 'product':
                 $fond_membership_reepay_plan_handle = fond_membership_reepay_sync_product($line_item_wrapper->get('commerce_product')->raw());
                 break;
+            case 'commerce_donate':
             case 'shipping':
             case 'commerce_discount':
             case 'commerce_coupon':
