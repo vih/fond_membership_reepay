@@ -359,7 +359,7 @@ function fond_membership_reepay_sync_product($product_id) {
             return $api_product->getHandle();
         }
         else {
-            // Create contact.
+            // Create product.
             $created_product = $repository->createPlanJson($api_product);
             $product->get('reepay_plan_handle')->set($created_product->getHandle());
             $product->save();
@@ -444,7 +444,6 @@ function fond_membership_reepay_create_invoice($order) {
     catch (Exception $e) {
         $fond_membership_reepay_invoice_handle = NULL;
     }
-
     // Save id to the entity.
     $wrapper->get('reepay_subscription_handle')->set($fond_membership_reepay_invoice_handle);
     $wrapper->save();
