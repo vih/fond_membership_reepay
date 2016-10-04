@@ -243,14 +243,6 @@ function fond_membership_reepay_get_api_repository($class_name) {
 }
 
 /**
- * Implements hook_commerce_checkout_complete().
- */
-function fond_membership_reepay_commerce_checkout_complete($order) {
-    // When the checkout is complete, we can create the invoice.
-    fond_membership_reepay_create_invoice($order);
-}
-
-/**
  * Syncs a contact with Billy
  *
  * @param integer $profile_id Drupal Commerce Contact Profile ID
@@ -492,62 +484,5 @@ function fond_membership_reepay_get_invoice_link($handle) {
     catch (Exception $e) {
         watchdog('fond_membership_reepay', 'Subscription ' . $handle . ' does not exist in Reepay.', array(), WATCHDOG_ERROR);
         return false;
-    }
-
-}
-
-/**
- * @param $order
- * @param $invoice_id
- * @return null|void
- */
-function fond_membership_reepay_sync_payment_on_order($order, $invoice_id) {
-    /** @var Billy_BankPaymentRepository $repository */
-    $repository = fond_membership_reepay_get_api_repository('\Billy\BankPayments\BankPaymentRepository');
-    if ($repository === null) {
-        return null;
-    }
-
-    $valid_payment_status = array(
-        COMMERCE_CREDIT_AUTH_ONLY,
-        COMMERCE_CREDIT_CAPTURE_ONLY,
-        COMMERCE_CREDIT_AUTH_CAPTURE,
-        COMMERCE_PAYMENT_STATUS_PENDING, // Should pending be listed on accepted status list?
-        COMMERCE_PAYMENT_STATUS_SUCCESS,
-    );
-    $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order->order_id));
-    foreach ($payments as $key => $payment) {
-        if (!in_array($payment->status, $valid_payment_status)) {
-            unset($payments[$key]);
-        }
-    }
-
-    if (empty($payments)) {
-        // No payments, end here.
-        return;
-    }
-
-    // Sync the last payment.
-    $payment = end($payments);
-    // TODO Should not be on the state_account but on a payment account.
-
-    $entry_date = new DateTime();
-    $entry_date->setTimestamp($payment->created);
-
-    $bank_payment = new Billy_BankPayment();
-    $bank_payment->setEntryDate($entry_date)
-        ->set('cashAmount', $payment->amount)
-        ->set('cashAccountId', variable_get('fond_membership_reepay_state_account_id'))
-        ->set('associations', array(
-            'subjectReference' => 'invoice:' . $invoice_id
-        ));
-
-
-    try {
-        $created_payment = $repository->create($bank_payment);
-    }
-    catch (Exception $e) {
-        $status = drupal_json_decode($e->json_body);
-        watchdog('fond_membership_reepay', 'Failed creating payments on invoice, reason was: %reason', array('%reason' => $status['error']), WATCHDOG_ERROR);
     }
 }
