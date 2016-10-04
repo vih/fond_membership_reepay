@@ -4,6 +4,8 @@
  * @file
  */
 
+include_once 'fond_membership_reepay.features.inc';
+
 define('REEPAY_API_PROTOCOL', 'https://');
 define('REEPAY_API_URL', 'api.reepay.com');
 define('REEPAY_TESTMODE', variable_get('fond_membership_reepay_test', false));

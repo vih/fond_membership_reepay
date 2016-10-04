@@ -4,11 +4,17 @@ package = "Fond"
 core = 7.x
 configure = admin/config/services/reepay
 
+dependencies[] = commerce_checkout
 dependencies[] = commerce_product
 dependencies[] = commerce_order
 dependencies[] = commerce_customer
+dependencies[] = entity
 dependencies[] = fond_membership
 dependencies[] = libraries
+dependencies[] = rules
 dependencies[] = xautoload
+
+features[features_api][] = api:2
+features[rules_config][] = rules_create_reepay_subscription
 
 files[] = fond_membership_reepay.admin.inc
